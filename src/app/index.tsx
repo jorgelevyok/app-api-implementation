@@ -12,9 +12,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 
 import { NuevoPostModal } from "@/components/NuevoPostModal";
+import { Toast } from "@/components/Toast";
 import { theme } from "@/constants/theme";
 import { crearPost, obtenerPosts } from "@/services/api";
-import { agregarMiPost, leerMisPosts } from "@/services/misPosts";
 import type { Post } from "@/types/post";
 
 export default function Index() {
@@ -25,6 +25,7 @@ export default function Index() {
   const [modalKey, setModalKey] = useState(0);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const cargarLista = useCallback(async (esRefresh = false) => {
     if (esRefresh) {
@@ -35,11 +36,8 @@ export default function Index() {
     setError(null);
 
     try {
-      // GET a la API. La lista visible son los posts creados por el usuario
-      // (JSONPlaceholder no los persiste).
-      await obtenerPosts();
-      const misPosts = await leerMisPosts();
-      setPosts(misPosts);
+      const data = await obtenerPosts();
+      setPosts(data);
     } catch (err) {
       setError(
         err instanceof Error
@@ -63,14 +61,14 @@ export default function Index() {
     setError(null);
 
     try {
-      const creado = await crearPost({
+      await crearPost({
         title: titulo,
         body: cuerpo,
         userId: 1,
       });
-      const actualizados = await agregarMiPost(creado);
-      setPosts(actualizados);
       setModalVisible(false);
+      setToast("Publicación creada correctamente");
+      await cargarLista(true);
     } catch (err) {
       setError(
         err instanceof Error
@@ -115,7 +113,7 @@ export default function Index() {
               <View style={styles.vacio}>
                 <Text style={styles.vacioTitulo}>Sin publicaciones</Text>
                 <Text style={styles.vacioTexto}>
-                  Creá tu primera nota con el botón de abajo.
+                  No hay posts para mostrar. Tirás hacia abajo para actualizar.
                 </Text>
               </View>
             }
@@ -148,6 +146,8 @@ export default function Index() {
           onCerrar={() => setModalVisible(false)}
           onEnviar={handlePublicar}
         />
+
+        <Toast mensaje={toast} onOcultar={() => setToast(null)} />
       </View>
     </SafeAreaView>
   );

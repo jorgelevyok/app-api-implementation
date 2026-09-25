@@ -11,9 +11,9 @@ Consigna: conectar la app con una API falsa ([JSONPlaceholder](https://jsonplace
 
 Una sola pantalla:
 
-1. **Lista** de los posts que vos creaste (se carga con **GET** al abrir / al tirar hacia abajo para refrescar).
-2. Botón **+** → abre un **modal** con el formulario.
-3. En el modal, **Publicar (POST)** envía el post a la API y lo agrega a tu lista.
+1. Al abrir (y al tirar hacia abajo) hace un **GET** a `/posts` y muestra la lista en un `FlatList`.
+2. El botón **+** abre un **modal** con el formulario.
+3. Al tocar **Publicar** se hace el **POST**, se cierra el modal y aparece un toast de confirmación.
 
 ---
 
@@ -30,20 +30,20 @@ Después abrila en Expo Go, emulador Android/iOS o web (`w`).
 
 ---
 
-## Flujo de la pantalla
+## Flujo
 
 ```text
 Abrir app
-  └── GET (obtenerPosts + leer lista local) → FlatList
+  └── GET (obtenerPosts) → FlatList
 
 Botón +
   └── Modal con formulario
-        └── Publicar → POST (crearPost) → se agrega a la lista → cierra modal
+        └── Publicar → POST (crearPost) → toast → cierra modal
 ```
 
 ---
 
-## Qué se aplicó de la consigna
+## Requisitos
 
 | Requisito | Dónde quedó |
 | --- | --- |
@@ -52,19 +52,6 @@ Botón +
 | Lista en pantalla | `FlatList` en `src/app/index.tsx` |
 | Formulario en modal | `NuevoPostModal` + botón `+` |
 | API falsa | `https://jsonplaceholder.typicode.com/posts` |
-
----
-
-## Importante: por qué hay almacenamiento local
-
-JSONPlaceholder **simula** el POST (responde con un `id`, por ejemplo 101) pero **no guarda** el recurso en el servidor. Si después hicieras solo un GET a `/posts`, verías los 100 posts de ejemplo, no los tuyos.
-
-Por eso, después de cada POST exitoso guardamos ese post en el dispositivo (`AsyncStorage`). Al hacer GET / refrescar:
-
-1. Se llama al **GET real** de la API (`obtenerPosts`).
-2. Se lee **tu lista** local (`leerMisPosts`) y eso es lo que muestra la pantalla.
-
-Así cumplís la consigna (GET + POST con `fetch`) y la lista es de lo que vos posteaste.
 
 ---
 
@@ -100,7 +87,7 @@ export async function crearPost(datos: NuevoPost): Promise<Post> {
 }
 ```
 
-Se dispara desde el modal al tocar **Publicar (POST)**.
+Se dispara desde el modal al tocar **Publicar**.
 
 ---
 
@@ -113,9 +100,9 @@ src/
     index.tsx                Lista + botón + + modal
   components/
     NuevoPostModal.tsx       Formulario en Modal
+    Toast.tsx                Confirmación al publicar
   services/
     api.ts                   obtenerPosts (GET) y crearPost (POST)
-    misPosts.ts              Guardar / leer tus posts (AsyncStorage)
   types/
     post.ts
   constants/
@@ -129,5 +116,3 @@ src/
 - Expo ~57 · React Native 0.86 · Expo Router · TypeScript
 - [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)
 - [JSONPlaceholder](https://jsonplaceholder.typicode.com/)
-- AsyncStorage (lista de lo que posteaste)
-

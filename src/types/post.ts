@@ -1,11 +1,11 @@
-/** Datos que se envían al crear un post (sin id; lo asigna la API). */
+/** Datos para crear un post (sin id). */
 export type NuevoPost = {
   title: string;
   body: string;
   userId: number;
 };
 
-/** Respuesta de JSONPlaceholder al crear un post (incluye el id simulado). */
+/** Post que devuelve la API. */
 export type Post = NuevoPost & {
   id: number;
 };
