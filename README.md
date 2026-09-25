@@ -1,56 +1,153 @@
-# Welcome to your Expo app 👋
+# Actividad 3 · Implementación de APIs
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Alumno:** Jorge Levy — DNI 39353204  
 
-## Get started
+Entrega del **Curso de React Native (UTN) — Clase 5**.  
+Consigna: conectar la app con una API falsa ([JSONPlaceholder](https://jsonplaceholder.typicode.com/)) implementando **GET** (leer) y **POST** (crear).
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Qué hace la app
 
-2. Start the app
+Una sola pantalla:
 
-   ```bash
-   npx expo start
-   ```
+1. **Lista** de los posts que vos creaste (se carga con **GET** al abrir / al tirar hacia abajo para refrescar).
+2. Botón **+** → abre un **modal** con el formulario.
+3. En el modal, **Publicar (POST)** envía el post a la API y lo agrega a tu lista.
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Cómo correrla
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Después abrila en Expo Go, emulador Android/iOS o web (`w`).
 
-### Other setup steps
+> Hace falta conexión a internet para el GET/POST a JSONPlaceholder.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+---
 
-## Learn more
+## Flujo de la pantalla
 
-To learn more about developing your project with Expo, look at the following resources:
+```text
+Abrir app
+  └── GET (obtenerPosts + leer lista local) → FlatList
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Botón +
+  └── Modal con formulario
+        └── Publicar → POST (crearPost) → se agrega a la lista → cierra modal
+```
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## Qué se aplicó de la consigna
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+| Requisito | Dónde quedó |
+| --- | --- |
+| Función **GET** | `obtenerPosts()` en `src/services/api.ts` |
+| Función **POST** | `crearPost()` en `src/services/api.ts` |
+| Lista en pantalla | `FlatList` en `src/app/index.tsx` |
+| Formulario en modal | `NuevoPostModal` + botón `+` |
+| API falsa | `https://jsonplaceholder.typicode.com/posts` |
+
+---
+
+## Importante: por qué hay almacenamiento local
+
+JSONPlaceholder **simula** el POST (responde con un `id`, por ejemplo 101) pero **no guarda** el recurso en el servidor. Si después hicieras solo un GET a `/posts`, verías los 100 posts de ejemplo, no los tuyos.
+
+Por eso, después de cada POST exitoso guardamos ese post en el dispositivo (`AsyncStorage`). Al hacer GET / refrescar:
+
+1. Se llama al **GET real** de la API (`obtenerPosts`).
+2. Se lee **tu lista** local (`leerMisPosts`) y eso es lo que muestra la pantalla.
+
+Así cumplís la consigna (GET + POST con `fetch`) y la lista es de lo que vos posteaste.
+
+---
+
+## GET
+
+```ts
+// src/services/api.ts
+export async function obtenerPosts(): Promise<Post[]> {
+  const respuesta = await fetch(`${API_BASE_URL}/posts`, {
+    method: "GET",
+  });
+  // ...
+  return await respuesta.json();
+}
+```
+
+Se usa al montar la pantalla y al tirar hacia abajo (pull to refresh).
+
+---
+
+## POST
+
+```ts
+// src/services/api.ts
+export async function crearPost(datos: NuevoPost): Promise<Post> {
+  const respuesta = await fetch(`${API_BASE_URL}/posts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=UTF-8" },
+    body: JSON.stringify(datos),
+  });
+  // ...
+  return await respuesta.json();
+}
+```
+
+Se dispara desde el modal al tocar **Publicar (POST)**.
+
+---
+
+## Estructura del proyecto
+
+```text
+src/
+  app/
+    _layout.tsx              Stack + header
+    index.tsx                Lista + botón + + modal
+  components/
+    NuevoPostModal.tsx       Formulario en Modal
+  services/
+    api.ts                   obtenerPosts (GET) y crearPost (POST)
+    misPosts.ts              Guardar / leer tus posts (AsyncStorage)
+  types/
+    post.ts
+  constants/
+    theme.ts
+```
+
+---
+
+## Tecnologías
+
+- Expo ~57 · React Native 0.86 · Expo Router · TypeScript
+- [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)
+- [JSONPlaceholder](https://jsonplaceholder.typicode.com/)
+- AsyncStorage (lista de lo que posteaste)
+
+---
+
+## Bibliografía de la consigna
+
+- Codecademy — Learn React Native  
+  https://www.codecademy.com/learn/learn-react-native
+- MDN — Using Fetch  
+  https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
+- JSON Placeholder  
+  https://jsonplaceholder.typicode.com/
+
+---
+
+## Entrega en GitHub
+
+Subir el proyecto a un repositorio **público** y entregar el link.
+
+```text
+https://github.com/<usuario>/app-api-implementation
+```

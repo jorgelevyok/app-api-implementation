@@ -1,98 +1,250 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { NuevoPostModal } from "@/components/NuevoPostModal";
+import { theme } from "@/constants/theme";
+import { crearPost, obtenerPosts } from "@/services/api";
+import { agregarMiPost, leerMisPosts } from "@/services/misPosts";
+import type { Post } from "@/types/post";
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+export default function Index() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [cargandoLista, setCargandoLista] = useState(true);
+  const [refrescando, setRefrescando] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalKey, setModalKey] = useState(0);
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const cargarLista = useCallback(async (esRefresh = false) => {
+    if (esRefresh) {
+      setRefrescando(true);
+    } else {
+      setCargandoLista(true);
+    }
+    setError(null);
+
+    try {
+      // GET a la API. La lista visible son los posts creados por el usuario
+      // (JSONPlaceholder no los persiste).
+      await obtenerPosts();
+      const misPosts = await leerMisPosts();
+      setPosts(misPosts);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo cargar. Revisá tu conexión."
+      );
+    } finally {
+      setCargandoLista(false);
+      setRefrescando(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      cargarLista();
+    }, [cargarLista])
   );
-}
 
-export default function HomeScreen() {
+  async function handlePublicar(titulo: string, cuerpo: string) {
+    setEnviando(true);
+    setError(null);
+
+    try {
+      const creado = await crearPost({
+        title: titulo,
+        body: cuerpo,
+        userId: 1,
+      });
+      const actualizados = await agregarMiPost(creado);
+      setPosts(actualizados);
+      setModalVisible(false);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo publicar. Revisá tu conexión."
+      );
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <SafeAreaView style={styles.safeArea} edges={["bottom"]}>
+      <View style={styles.container}>
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorTexto}>{error}</Text>
+          </View>
+        ) : null}
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
+        {cargandoLista ? (
+          <View style={styles.centro}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={posts}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={[
+              styles.lista,
+              posts.length === 0 && styles.listaVacia,
+            ]}
+            refreshControl={
+              <RefreshControl
+                refreshing={refrescando}
+                onRefresh={() => cargarLista(true)}
+                colors={[theme.colors.primary]}
+                tintColor={theme.colors.primary}
+              />
+            }
+            ListEmptyComponent={
+              <View style={styles.vacio}>
+                <Text style={styles.vacioTitulo}>Sin publicaciones</Text>
+                <Text style={styles.vacioTexto}>
+                  Creá tu primera nota con el botón de abajo.
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <Text style={styles.cardTitulo}>{item.title}</Text>
+                <Text style={styles.cardCuerpo}>{item.body}</Text>
+              </View>
+            )}
           />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        )}
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        <Pressable
+          style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+          onPress={() => {
+            setError(null);
+            setModalKey((k) => k + 1);
+            setModalVisible(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Nueva publicación"
+        >
+          <Text style={styles.fabTexto}>+</Text>
+        </Pressable>
+
+        <NuevoPostModal
+          key={modalKey}
+          visible={modalVisible}
+          cargando={enviando}
+          onCerrar={() => setModalVisible(false)}
+          onEnviar={handlePublicar}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    backgroundColor: theme.colors.background,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  container: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
   },
-  title: {
-    textAlign: 'center',
+  lista: {
+    padding: theme.spacing.md,
+    paddingBottom: 96,
+    gap: theme.spacing.sm,
   },
-  code: {
-    textTransform: 'uppercase',
+  listaVacia: {
+    flexGrow: 1,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 6,
+  },
+  cardTitulo: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: theme.colors.text,
+  },
+  cardCuerpo: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: theme.colors.textSecondary,
+  },
+  centro: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  vacio: {
+    alignItems: "center",
+    paddingVertical: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.lg,
+    gap: theme.spacing.xs,
+  },
+  vacioTitulo: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: theme.colors.text,
+  },
+  vacioTexto: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
+  },
+  errorBanner: {
+    margin: theme.spacing.md,
+    marginBottom: 0,
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.errorBg,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+  },
+  errorTexto: {
+    color: theme.colors.error,
+    fontSize: 13,
+  },
+  fab: {
+    position: "absolute",
+    right: theme.spacing.lg,
+    bottom: theme.spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  fabPressed: {
+    backgroundColor: theme.colors.primaryDark,
+  },
+  fabTexto: {
+    color: "#FFFFFF",
+    fontSize: 32,
+    fontWeight: "400",
+    lineHeight: 34,
   },
 });
